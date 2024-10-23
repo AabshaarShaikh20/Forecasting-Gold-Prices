@@ -55,9 +55,9 @@ end_date = pd.to_datetime('2023-12-31')
 # Create a date range from 2016 to 2023
 dates = pd.date_range(start=start_date, end=end_date, freq='D')
 
-# Generate random prices between 1200 and 2000 for the period
+# Generate random prices between 1000 and 5000 for the period
 np.random.seed(42)
-prices = np.random.uniform(1200, 2000, size=len(dates))
+prices = np.random.uniform(1000, 5000, size=len(dates))
 
 # Create a DataFrame with the historical prices
 historical_data = pd.DataFrame({'date': dates, 'price': prices})
