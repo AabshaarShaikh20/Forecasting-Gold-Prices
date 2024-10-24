@@ -68,14 +68,19 @@ st.markdown("<div class='custom-subheader'>Historical Prices (2016 - 2023)</div>
 st.dataframe(historical_data)
 
 # Function to predict future prices for a given number of days
-def predict_future_prices(start_price, days):
+def predict_future_prices(start_price, days, variation_factor=0.05):
     predicted_prices = []
     current_price = start_price
     for _ in range(days):
         input_data = np.array([[current_price]])
         prediction = model.predict(input_data)[0]
-        predicted_prices.append(prediction)
-        current_price = prediction
+        
+        # Add random variation to simulate market fluctuations
+        random_variation = np.random.uniform(-variation_factor, variation_factor) * prediction
+        adjusted_prediction = prediction + random_variation
+        
+        predicted_prices.append(adjusted_prediction)
+        current_price = adjusted_prediction
     return predicted_prices
 
 # Button to trigger prediction
