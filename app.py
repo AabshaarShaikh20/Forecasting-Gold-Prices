@@ -83,10 +83,14 @@ def predict_future_prices(start_price, days, variation_factor=0.05):
         current_price = adjusted_prediction
     return predicted_prices
 
+# Let the user choose the year they want predictions for
+selected_year = st.selectbox('Select a year for prediction', [2024, 2025, 2026, 2027, 2028, 2029, 2030])
+
 # Button to trigger prediction
-if st.button("Predict Next 30 Days"):
-    # Predict prices for the next 30 days
-    next_30_days = pd.date_range(start=datetime.today(), periods=30)
+if st.button(f"Predict 30 Days for {selected_year}"):
+    # Predict prices for the first 30 days of the selected year
+    start_date_of_year = pd.to_datetime(f'{selected_year}-01-01')
+    next_30_days = pd.date_range(start=start_date_of_year, periods=30)
     last_price = historical_data.iloc[-1]['price']
     predicted_prices = predict_future_prices(last_price, 30)
     
@@ -96,27 +100,27 @@ if st.button("Predict Next 30 Days"):
 
     # Display the total predicted price over the 30 days
     total_price = np.sum(predicted_prices)
-    st.markdown(f"<div class='custom-subheader'>Total Predicted Price for Next 30 Days: {total_price:.2f} USD</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='custom-subheader'>Total Predicted Price for 30 Days in {selected_year}: {total_price:.2f} USD</div>", unsafe_allow_html=True)
 
     # Plot the predicted prices
-    st.markdown("<div class='custom-subheader'>Gold Price Predictions for the Next 30 Days</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='custom-subheader'>Gold Price Predictions for 30 Days in {selected_year}</div>", unsafe_allow_html=True)
     
-    # Creating more smooth price differences for visualization purposes
+    # Plot the predictions
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(prediction_data.index, prediction_data['price'], label='Predicted Prices', color='gold')
-    ax.set_title('Gold Price Predictions for the Next 30 Days')
-
+    ax.set_title(f'Gold Price Predictions for the Next 30 Days in {selected_year}')
+    
     # Rotate x-axis labels and set the ticks for better readability
     ax.set_xlabel('Date')
     ax.set_xticks(prediction_data.index[::5])  # Show every 5th date
     ax.set_xticklabels(prediction_data.index.strftime('%Y-%m-%d')[::5], rotation=45)
-
     
     ax.set_ylabel('Gold Price (USD)')
     ax.legend()
     
     # Display the graph
     st.pyplot(fig)
+
 
 
 # In[ ]:
