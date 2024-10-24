@@ -105,7 +105,13 @@ if st.button("Predict Next 30 Days"):
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(prediction_data.index, prediction_data['price'], label='Predicted Prices', color='gold')
     ax.set_title('Gold Price Predictions for the Next 30 Days')
+
+    # Rotate x-axis labels and set the ticks for better readability
     ax.set_xlabel('Date')
+    ax.set_xticks(prediction_data.index[::5])  # Show every 5th date
+    ax.set_xticklabels(prediction_data.index.strftime('%Y-%m-%d')[::5], rotation=45)
+
+    
     ax.set_ylabel('Gold Price (USD)')
     ax.legend()
     
