@@ -62,16 +62,17 @@ st.markdown("<div class='custom-subheader'>Historical Prices (2016 - 2023)</div>
 st.dataframe(historical_data)
 
 # Function to predict future prices for a given number of days
-def predict_future_prices(start_price, days, variation_factor=0.05):
+def predict_future_prices(start_price, days, annual_trend=0.03, variation_factor=0.05):
     predicted_prices = []
     current_price = start_price
     for _ in range(days):
         input_data = np.array([[current_price]])
         prediction = model.predict(input_data)[0]
         
-        # Add random variation to simulate market fluctuations
-        random_variation = np.random.uniform(-variation_factor, variation_factor) * prediction
-        adjusted_prediction = prediction + random_variation
+        # Apply annual trend to simulate yearly price growth or decay
+        trend_adjustment = (1 + annual_trend) * prediction
+        random_variation = np.random.uniform(-variation_factor, variation_factor) * trend_adjustment
+        adjusted_prediction = trend_adjustment + random_variation
         
         predicted_prices.append(adjusted_prediction)
         current_price = adjusted_prediction
@@ -80,17 +81,16 @@ def predict_future_prices(start_price, days, variation_factor=0.05):
 # Let the user choose the year they want predictions for
 selected_year = st.selectbox('Select a year for prediction', [2024, 2025, 2026, 2027, 2028, 2029, 2030])
 
-# Generate different starting prices for each year for variation
-# Example: Simulate starting prices based on historical trends or randomness
-starting_price_dict = {
-    2024: historical_data.iloc[-1]['price'] * np.random.uniform(0.95, 1.05),
-    2025: historical_data.iloc[-1]['price'] * np.random.uniform(0.90, 1.10),
-    2026: historical_data.iloc[-1]['price'] * np.random.uniform(0.85, 1.15),
-    2027: historical_data.iloc[-1]['price'] * np.random.uniform(0.80, 1.20),
-    2028: historical_data.iloc[-1]['price'] * np.random.uniform(0.75, 1.25),
-    2029: historical_data.iloc[-1]['price'] * np.random.uniform(0.70, 1.30),
-    2030: historical_data.iloc[-1]['price'] * np.random.uniform(0.65, 1.35)
-}
+# Set a dynamic starting price for each year based on previous years
+starting_price = historical_data.iloc[-1]['price']  # Start from last historical price in 2023
+year_trend_dict = {}
+
+# Create a progressive trend for each future year based on cumulative trend adjustments
+for year in range(2024, 2031):
+    # Randomly set an annual trend factor between -3% and +3% to simulate a different trend each year
+    annual_trend_factor = np.random.uniform(-0.03, 0.03)
+    year_trend_dict[year] = starting_price * (1 + annual_trend_factor)
+    starting_price = year_trend_dict[year]  # Update starting price for the next year
 
 # Button to trigger prediction
 if st.button(f"Predict 30 Days for {selected_year}"):
@@ -98,11 +98,11 @@ if st.button(f"Predict 30 Days for {selected_year}"):
     start_date_of_year = pd.to_datetime(f'{selected_year}-01-01')
     next_30_days = pd.date_range(start=start_date_of_year, periods=30)
     
-    # Get the starting price for the selected year
-    start_price = starting_price_dict[selected_year]
+    # Get the starting price for the selected year with annual trend applied
+    start_price = year_trend_dict[selected_year]
     
-    # Predict the prices based on the starting price for the selected year
-    predicted_prices = predict_future_prices(start_price, 30)
+    # Predict the prices based on the starting price and annual trend for the selected year
+    predicted_prices = predict_future_prices(start_price, 30, annual_trend=annual_trend_factor)
     
     # Create a DataFrame for the predicted prices
     prediction_data = pd.DataFrame({'date': next_30_days, 'price': predicted_prices})
