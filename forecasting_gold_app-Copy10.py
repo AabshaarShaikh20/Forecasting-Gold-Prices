@@ -5,35 +5,18 @@ import joblib
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# Load your trained Random Forest model
+# Load the trained model
 model = joblib.load('forecasting gold prices.pkl')
 
-# Custom CSS for styling
+# Custom CSS styling
 st.markdown(
     """
     <style>
-    .stApp {
-        background-image: url('https://miro.medium.com/v2/resize:fit:1400/1*ulJoL83fzF8Jsg4NRAXWlQ.jpeg');
-        background-size: cover;
-        background-position: center;
-        filter: brightness(0.8);
-    }
-    .custom-header {
-        font-size: 36px;
-        color: #000000;
-        text-align: center;
-        font-weight: bold;
-    }
-    .custom-subheader {
-        font-size: 28px;
-        color: #FFD700;
-        text-align: center;
-    }
-    .block-container {
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 10px;
-        padding: 20px;
-    }
+    .stApp { background-image: url('https://miro.medium.com/v2/resize:fit:1400/1*ulJoL83fzF8Jsg4NRAXWlQ.jpeg');
+             background-size: cover; background-position: center; filter: brightness(0.8); }
+    .custom-header { font-size: 36px; color: #000; text-align: center; font-weight: bold; }
+    .custom-subheader { font-size: 28px; color: #FFD700; text-align: center; }
+    .block-container { background: rgba(255, 255, 255, 0.8); border-radius: 10px; padding: 20px; }
     </style>
     """,
     unsafe_allow_html=True
@@ -42,91 +25,78 @@ st.markdown(
 # Title with custom styling
 st.markdown("<div class='custom-header'>Gold Price Prediction</div>", unsafe_allow_html=True)
 
-# Generate historical data from 2016 to 2023
+# Set up year selection and custom parameter sliders
+selected_year = st.selectbox('Select a year for prediction', [2024, 2025, 2026, 2027, 2028, 2029, 2030])
+variation_factor = st.slider("Variation Factor (for market fluctuations)", 0.01, 0.1, 0.05)
+
+# Generate historical data (for display and initial calculations)
 start_date = pd.to_datetime('2016-01-01')
 end_date = pd.to_datetime('2023-12-31')
-
-# Create a date range from 2016 to 2023
 dates = pd.date_range(start=start_date, end=end_date, freq='D')
-
-# Generate random prices between 1000 and 5000 for the period
-np.random.seed(42)
 prices = np.random.uniform(1000, 5000, size=len(dates))
-
-# Create a DataFrame with the historical prices
 historical_data = pd.DataFrame({'date': dates, 'price': prices})
 historical_data.set_index('date', inplace=True)
 
-# Display historical data first
 st.markdown("<div class='custom-subheader'>Historical Prices (2016 - 2023)</div>", unsafe_allow_html=True)
 st.dataframe(historical_data)
 
-# Function to predict future prices for a given number of days
+# Custom starting price for each year to simulate yearly variations
+starting_price_dict = {
+    year: historical_data.iloc[-1]['price'] * np.random.uniform(1 - (0.1 * (year - 2023)), 1 + (0.1 * (year - 2023)))
+    for year in range(2024, 2031)
+}
+
+# Prediction function with confidence intervals and moving average
 def predict_future_prices(start_price, days, variation_factor=0.05):
     predicted_prices = []
+    lower_bound, upper_bound = [], []
     current_price = start_price
     for _ in range(days):
         input_data = np.array([[current_price]])
         prediction = model.predict(input_data)[0]
         
-        # Add random variation to simulate market fluctuations
         random_variation = np.random.uniform(-variation_factor, variation_factor) * prediction
         adjusted_prediction = prediction + random_variation
+        confidence_interval = prediction * variation_factor  # simple confidence interval
         
         predicted_prices.append(adjusted_prediction)
+        lower_bound.append(adjusted_prediction - confidence_interval)
+        upper_bound.append(adjusted_prediction + confidence_interval)
+        
         current_price = adjusted_prediction
-    return predicted_prices
+    
+    return predicted_prices, lower_bound, upper_bound
 
-# Let the user choose the year they want predictions for
-selected_year = st.selectbox('Select a year for prediction', [2024, 2025, 2026, 2027, 2028, 2029, 2030])
-
-# Generate different starting prices for each year for variation
-# Example: Simulate starting prices based on historical trends or randomness
-starting_price_dict = {
-    2024: historical_data.iloc[-1]['price'] * np.random.uniform(0.95, 1.05),
-    2025: historical_data.iloc[-1]['price'] * np.random.uniform(0.90, 1.10),
-    2026: historical_data.iloc[-1]['price'] * np.random.uniform(0.85, 1.15),
-    2027: historical_data.iloc[-1]['price'] * np.random.uniform(0.80, 1.20),
-    2028: historical_data.iloc[-1]['price'] * np.random.uniform(0.75, 1.25),
-    2029: historical_data.iloc[-1]['price'] * np.random.uniform(0.70, 1.30),
-    2030: historical_data.iloc[-1]['price'] * np.random.uniform(0.65, 1.35)
-}
-
-# Button to trigger prediction
+# Prediction and plotting based on selected year and parameters
 if st.button(f"Predict 30 Days for {selected_year}"):
-    # Predict prices for the first 30 days of the selected year
-    start_date_of_year = pd.to_datetime(f'{selected_year}-01-01')
-    next_30_days = pd.date_range(start=start_date_of_year, periods=30)
-    
-    # Get the starting price for the selected year
     start_price = starting_price_dict[selected_year]
+    predicted_prices, lower_bound, upper_bound = predict_future_prices(start_price, 30, variation_factor)
+    next_30_days = pd.date_range(start=f"{selected_year}-01-01", periods=30)
     
-    # Predict the prices based on the starting price for the selected year
-    predicted_prices = predict_future_prices(start_price, 30)
-    
-    # Create a DataFrame for the predicted prices
-    prediction_data = pd.DataFrame({'date': next_30_days, 'price': predicted_prices})
+    prediction_data = pd.DataFrame({
+        'date': next_30_days,
+        'price': predicted_prices,
+        'lower_bound': lower_bound,
+        'upper_bound': upper_bound
+    })
     prediction_data.set_index('date', inplace=True)
 
-    # Display the total predicted price over the 30 days
-    total_price = np.sum(predicted_prices)
-    st.markdown(f"<div class='custom-subheader'>Total Predicted Price for 30 Days in {selected_year}: {total_price:.2f} USD</div>", unsafe_allow_html=True)
+    # Moving Average Calculation for smooth trend display
+    prediction_data['7-day MA'] = prediction_data['price'].rolling(window=7).mean()
 
-    # Plot the predicted prices
+    # Plotting
     st.markdown(f"<div class='custom-subheader'>Gold Price Predictions for 30 Days in {selected_year}</div>", unsafe_allow_html=True)
     
-    # Plot the predictions
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(prediction_data.index, prediction_data['price'], label='Predicted Prices', color='gold')
-    ax.set_title(f'Gold Price Predictions for the Next 30 Days in {selected_year}')
+    ax.plot(prediction_data.index, prediction_data['price'], label='Predicted Price', color='gold')
+    ax.fill_between(prediction_data.index, prediction_data['lower_bound'], prediction_data['upper_bound'], color='lightgoldenrodyellow', alpha=0.4, label='Confidence Interval')
+    ax.plot(prediction_data.index, prediction_data['7-day MA'], label='7-Day Moving Average', linestyle='--', color='orange')
+    ax.set_title(f'Gold Price Predictions with Confidence Interval and Moving Average for {selected_year}')
     
-    # Rotate x-axis labels and set the ticks for better readability
     ax.set_xlabel('Date')
+    ax.set_ylabel('Gold Price (USD)')
     ax.set_xticks(prediction_data.index[::5])  # Show every 5th date
     ax.set_xticklabels(prediction_data.index.strftime('%Y-%m-%d')[::5], rotation=45)
-    
-    ax.set_ylabel('Gold Price (USD)')
     ax.legend()
-    
-    # Display the graph
+
     st.pyplot(fig)
