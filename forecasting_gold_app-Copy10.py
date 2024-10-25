@@ -25,9 +25,12 @@ st.markdown(
 # Title with custom styling
 st.markdown("<div class='custom-header'>Gold Price Prediction</div>", unsafe_allow_html=True)
 
-# Set up year selection and custom parameter sliders
+# Select prediction year and duration
 selected_year = st.selectbox('Select a year for prediction', [2024, 2025, 2026, 2027, 2028, 2029, 2030])
-variation_factor = st.slider("Variation Factor (for market fluctuations)", 0.01, 0.1, 0.05)
+prediction_days = st.slider("Select Prediction Duration (Days)", min_value=7, max_value=90, value=30, step=7)
+
+# Option to show historical comparison
+show_historical = st.checkbox("Show Historical Data Comparison")
 
 # Generate historical data (for display and initial calculations)
 start_date = pd.to_datetime('2016-01-01')
@@ -46,56 +49,41 @@ starting_price_dict = {
     for year in range(2024, 2031)
 }
 
-# Prediction function with confidence intervals and moving average
-def predict_future_prices(start_price, days, variation_factor=0.05):
+# Prediction function with adjustable days
+def predict_future_prices(start_price, days):
     predicted_prices = []
-    lower_bound, upper_bound = [], []
     current_price = start_price
     for _ in range(days):
         input_data = np.array([[current_price]])
         prediction = model.predict(input_data)[0]
         
-        random_variation = np.random.uniform(-variation_factor, variation_factor) * prediction
-        adjusted_prediction = prediction + random_variation
-        confidence_interval = prediction * variation_factor  # simple confidence interval
-        
-        predicted_prices.append(adjusted_prediction)
-        lower_bound.append(adjusted_prediction - confidence_interval)
-        upper_bound.append(adjusted_prediction + confidence_interval)
-        
-        current_price = adjusted_prediction
-    
-    return predicted_prices, lower_bound, upper_bound
+        predicted_prices.append(prediction)
+        current_price = prediction
+    return predicted_prices
 
-# Prediction and plotting based on selected year and parameters
-if st.button(f"Predict 30 Days for {selected_year}"):
+# Prediction and plotting based on selected year and duration
+if st.button(f"Predict {prediction_days} Days for {selected_year}"):
     start_price = starting_price_dict[selected_year]
-    predicted_prices, lower_bound, upper_bound = predict_future_prices(start_price, 30, variation_factor)
-    next_30_days = pd.date_range(start=f"{selected_year}-01-01", periods=30)
+    predicted_prices = predict_future_prices(start_price, prediction_days)
+    prediction_dates = pd.date_range(start=f"{selected_year}-01-01", periods=prediction_days)
     
-    prediction_data = pd.DataFrame({
-        'date': next_30_days,
-        'price': predicted_prices,
-        'lower_bound': lower_bound,
-        'upper_bound': upper_bound
-    })
+    prediction_data = pd.DataFrame({'date': prediction_dates, 'price': predicted_prices})
     prediction_data.set_index('date', inplace=True)
 
-    # Moving Average Calculation for smooth trend display
-    prediction_data['7-day MA'] = prediction_data['price'].rolling(window=7).mean()
-
     # Plotting
-    st.markdown(f"<div class='custom-subheader'>Gold Price Predictions for 30 Days in {selected_year}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='custom-subheader'>Gold Price Predictions for {prediction_days} Days in {selected_year}</div>", unsafe_allow_html=True)
     
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(prediction_data.index, prediction_data['price'], label='Predicted Price', color='gold')
-    ax.fill_between(prediction_data.index, prediction_data['lower_bound'], prediction_data['upper_bound'], color='lightgoldenrodyellow', alpha=0.4, label='Confidence Interval')
-    ax.plot(prediction_data.index, prediction_data['7-day MA'], label='7-Day Moving Average', linestyle='--', color='orange')
-    ax.set_title(f'Gold Price Predictions with Confidence Interval and Moving Average for {selected_year}')
-    
+
+    # Add historical comparison if selected
+    if show_historical:
+        ax.plot(historical_data.index, historical_data['price'], label='Historical Price', color='gray', linestyle='--', alpha=0.7)
+
+    ax.set_title(f'Gold Price Predictions for {prediction_days} Days in {selected_year}')
     ax.set_xlabel('Date')
     ax.set_ylabel('Gold Price (USD)')
-    ax.set_xticks(prediction_data.index[::5])  # Show every 5th date
+    ax.set_xticks(prediction_data.index[::5])
     ax.set_xticklabels(prediction_data.index.strftime('%Y-%m-%d')[::5], rotation=45)
     ax.legend()
 
